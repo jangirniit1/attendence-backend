@@ -29,7 +29,6 @@ const password = encodeURIComponent(process.env.MONGO_PASSWORD);
 //   if (dbConnection)
 //     app.listen(port, () => console.log("Server Started on port " + port));
 
-
 mongoose.connect(
   "mongodb+srv://" +
   username +
@@ -46,55 +45,116 @@ mongoose.connect(
   })
   .catch((error) => console.error("MongoDB connection error:", error));
 
-
-
-  
   let d = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-  
+
+  // const attendanceSchema = new mongoose.Schema({
+  //   date: {
+  //     type: Date,
+  //     default: d,
+  //   },
+  //   attendance: {
+  //     type: Object,
+  //     required: true,
+  //   },
+  //   name: {
+  //     type: String,
+  //     required: true,
+  //   },
+  //   faculty: {
+  //     type: String,
+  //     required: true,
+  //   },
+  // });
+
   const attendanceSchema = new mongoose.Schema({
     date: {
       type: Date,
-      default: d,
+      default: new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
     },
-    attendance: {
-      type: Object,
-      required: true,
-    },
-  });
-  const facultySchema = new mongoose.Schema({
-    name: {
+    attendance: [
+      {
+        studentId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Student',
+          required: true,
+        },
+        studentName: {
+          type: String,
+          required: true,
+        },
+        status: {
+          type: String,
+          required: true,
+        },
+      }
+    ],
+    faculty: {
       type: String,
       required: true,
     },
-    id: {
-      type: Number,
-      default: Date.now(),
-    },
   });
-  
+
+  const facultySchema = new mongoose.Schema({
+    // name: {
+    //   type: String,
+    //   required: true,
+    // },
+    // id: {
+    //   type: Number,
+    //   default: Date.now(),
+    // },
+
+    facultyList: [
+     {
+      // id:{
+      //   type:String,
+      //   required:true,
+      //   default:Date.now()
+
+      // },
+
+      name: {
+        type:String,
+        required:true
+
+      },
+    }
+    ]
+  });
+
   const studentSchema = new mongoose.Schema({
     id: {
       type: Number,
       default: Date.now(),
     },
-    name: {
-      type: String,
-      required: true,
-    },
-    faculty: {
-      type: String,
-      required: true,
-    },
-    aadhaar: {
-      type: String,
-      required: true,
-    }
+     faculty: {
+        type: String,
+        required: true,
+      },
+
+      students: {
+        type: Array,
+        required:true,
+      }
+
+    // name: {
+    //   type: String,
+    //   required: true,
+    // },
+    // faculty: {
+    //   type: String,
+    //   required: true,
+    // },
+    // aadhaar: {
+    //   type: String,
+    //   required: true,
+    // }
   });
-  
+
   const attendanceModel = mongoose.model("record", attendanceSchema, "record");
   const facultyModel = mongoose.model("faculty", facultySchema, "faculty");
   const studentModel = mongoose.model("student", studentSchema, "student");
-  
+
   app.post("/saveAttendance", (req, res) => {
     const dataToSave = new attendanceModel(req.body);
     dataToSave
@@ -105,30 +165,29 @@ mongoose.connect(
         res.send(false);
       });
   });
-  
+
   app.get("/getFaculty", async (req, res) => {
     const facultyList = await facultyModel.find({}).select("-__v");
     if (facultyList) res.json(facultyList);
     else res.json(false);
   });
-  
+
   app.post("/saveFaculty", async (req, res) => {
-    const dataToSave = new facultyModel(req.body);
-    dataToSave
-      .save()
-      .then((response) => res.json(response))
-      .catch((error) => {
-        console.log(error);
-        res.send(false);
-      });
+    try {
+      const faculties = req.body.faculties;
+      await facultyModel.insertMany(faculties);
+      res.status(200).send("Faculties Saved");
+    } catch (error) {
+      res.status(500).send("Error saving faculties");
+    }
   });
-  
+
+
   // app.get("/getStudent", async (req, res) => {
   //   const studentList = await studentModel.find({}).select("-__v");
   //   if (studentList) res.json(studentList);
   //   else res.json(false);
   // });
-
 
   app.get('/getStudent', async (req, res) => {
     const { faculty } = req.query;
@@ -139,7 +198,7 @@ mongoose.connect(
       res.status(500).json({ message: 'Error fetching students' });
     }
   });
-  
+
   app.post("/saveStudent", async (req, res) => {
     const dataToSave = new studentModel(req.body);
     dataToSave
@@ -150,7 +209,7 @@ mongoose.connect(
         res.send(false);
       });
   });
-  
+
   app.delete("/deleteStudent/:id", async (req, res) => {
     const idToDelete = req.params.id;
     const deletedStudent = await studentModel.findOneAndDelete({
@@ -159,7 +218,6 @@ mongoose.connect(
     if (deletedStudent) res.json("Student Deleted");
     else res.json(false);
   });
-  
 
   app.delete("/deleteFaculty/:id", async (req, res) => {
     const idToDelete = req.params.id;
